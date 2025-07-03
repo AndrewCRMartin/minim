@@ -1,6 +1,17 @@
+/*************************************************************************
+   File:     Emin.c
+   Function: Simple demo of energy minimization by Steepest Descents
+             in internal coordinates
+   Date:     02.07.25
+   Author:   Andrew C.R. Martin
+   Licence:  MIT
+*************************************************************************/
+
+/* Includes                                                             */
 #include <stdio.h>
 #include <math.h>
 
+/* Structure definitions                                                */
 typedef struct _eval
 {
    double E;
@@ -14,10 +25,12 @@ typedef struct _conf
    double thetaHOH;
 } CONF;
 
+/* Prototypes                                                           */
+EVAL *SDMinimization(CONF *conf, double c, int maxsteps);
+EVAL *EnergyAndGradients(CONF *conf);
 
-EVAL *sd(CONF *conf, double c, int maxsteps);
-EVAL *Eandg(CONF *conf);
-
+/************************************************************************/
+/* Main function                                                        */
 int main(int argc, char **argv)
 {
    CONF conf;
@@ -30,21 +43,33 @@ int main(int argc, char **argv)
    conf.rOH      = 10.0;
    conf.thetaHOH = 180.0;
 
-   eval = sd(&conf, stepSize, maxsteps);
+   eval = SDMinimization(&conf, stepSize, maxsteps);
 
    printf("%f %f %f\n", eval->E,conf.rOH,conf.thetaHOH);
 
    return(0);
 }
 
-EVAL *sd(CONF *conf, double stepSize, int maxsteps)
+/************************************************************************/
+/* Steepest Descent Minimization
+   -----------------------------
+   I/O:     conf       Pointer to a CONF structure containing the
+                       conformation
+   Input:   stepSize   Minimization step size. Doesn't have to be constant
+            maxsteps   Maximum number of steps
+   Returns:            Pointer to a structure containing the energy and
+                       the gradients
+
+   02.07.25 Original   By: ACRM
+*/
+EVAL *SDMinimization(CONF *conf, double stepSize, int maxsteps)
 {
    int i;
    EVAL *eval;
    
    for(i=0; i<maxsteps; i++)
    {
-      eval = Eandg(conf);
+      eval = EnergyAndGradients(conf);
       if ((fabs(eval->grad_rOH) > (0.001/stepSize)) ||
           (fabs(eval->grad_thetaHOH) > (0.01/stepSize)))
       {
@@ -67,11 +92,45 @@ EVAL *sd(CONF *conf, double stepSize, int maxsteps)
 }
        
 
-EVAL *Eandg(CONF *conf)
+/************************************************************************/
+/* Energy and graident calculation
+   -------------------------------
+   Input:   conf       Pointer to a CONF structure containing the
+                       conformation
+   Returns:            Pointer to a structure containing the energy and
+                       the gradients
+
+   Note that the eval structure is declared as static so that it is a
+   fixed location on the heap rather than an automatic variable on the
+   stack (in which case the pointer would be invalid when the functio
+   returns).
+
+   Energy function:
+   E = 2 * k_r((r - r_o)^2) + k_a((a - a_o)^2)
+   where k_r is the radius (O-H distance) constant
+         r   is the current radius
+         r_o is the optimum radius
+         k_a is the (H-O-H) angle constant
+         a   is the current angle
+         a_o is the optimum angle
+   The multiplication by 2 is because there are two O-H bonds
+
+   The gradients are given by differentiating the energy terms:
+   - WRT the radius
+     Gr = d(k_r((r - r_o)^2))/dr = 2*k_r(r - r_o)
+   - WRT the angle
+     Ga = d(k_a((a - a_o)^2))/dr = 2*k_a(a - a_o)
+
+   In cartesian space, this would need partial differentials wrt x and y
+   (and z if in 3 dimensions)
+     
+   02.07.25 Original   By: ACRM
+*/
+EVAL *EnergyAndGradients(CONF *conf)
 {
-   double k_rOH = 50.0;
-   double opt_rOH = 0.95;
-   double k_thetaHOH = 50.0;
+   double k_rOH        = 50.0;
+   double opt_rOH      = 0.95;
+   double k_thetaHOH   = 50.0;
    double opt_thetaHOH = 104.5;
 
    static EVAL eval;
@@ -88,5 +147,3 @@ EVAL *Eandg(CONF *conf)
 
    return (&eval);
 }
-
-
